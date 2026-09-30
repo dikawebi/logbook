@@ -1,0 +1,26 @@
+[30-Sep-2026 02:10:39 UTC] PDOException: SQLSTATE[HY000] [2002] No connection could be made because the target machine actively refused it in D:\web\logbook\app\bootstrap.php:92
+Stack trace:
+#0 D:\web\logbook\app\bootstrap.php(92): PDO->__construct('mysql:host=loca...', 'root', Object(SensitiveParameterValue), Array)
+#1 D:\web\logbook\app\bootstrap.php(162): db()
+#2 D:\web\logbook\public\index.php(35): loginUser('andika.kuswidya...', 'Maungehacknih1!')
+#3 {main}
+[30-Sep-2026 08:50:43 UTC] PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'a.id' in 'order clause' in D:\web\logbook\public\index.php:268
+Stack trace:
+#0 D:\web\logbook\public\index.php(268): PDO->query('SELECT happened...')
+#1 D:\web\logbook\public\index.php(67): auditList()
+#2 {main}
+[30-Sep-2026 08:50:46 UTC] PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'a.id' in 'order clause' in D:\web\logbook\public\index.php:268
+Stack trace:
+#0 D:\web\logbook\public\index.php(268): PDO->query('SELECT happened...')
+#1 D:\web\logbook\public\index.php(67): auditList()
+#2 {main}
+[30-Sep-2026 08:50:47 UTC] PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'a.id' in 'order clause' in D:\web\logbook\public\index.php:268
+Stack trace:
+#0 D:\web\logbook\public\index.php(268): PDO->query('SELECT happened...')
+#1 D:\web\logbook\public\index.php(67): auditList()
+#2 {main}
+[30-Sep-2026 08:50:53 UTC] PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'a.id' in 'order clause' in D:\web\logbook\public\index.php:268
+Stack trace:
+#0 D:\web\logbook\public\index.php(268): PDO->query('SELECT happened...')
+#1 D:\web\logbook\public\index.php(67): auditList()
+#2 {main}
