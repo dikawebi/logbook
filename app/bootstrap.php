@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+date_default_timezone_set('Asia/Jakarta');
+
 const EDITABLE_COLUMNS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32];
 const DATE_COLUMNS = [1, 2, 3, 7, 9, 11, 28, 32];
 const NUMBER_COLUMNS = [12, 16, 17, 18, 19, 20, 21, 22, 23, 25, 26];
@@ -95,6 +97,7 @@ function db(): PDO {
             PDO::ATTR_EMULATE_PREPARES => false,
         ]);
         ensureTransactionSchema($db);
+        ensureUserRoles($db);
     }
     return $db;
 }
@@ -105,6 +108,13 @@ function inferVatMultiplier(array $data): float {
     // Prefer 1.1% when its rounded workbook result matches historical VAT.
     if ($dpp != 0.0 && formulaInteger($dpp * 0.011) === formulaInteger($vat)) return 0.011;
     return 0.11;
+}
+
+function ensureUserRoles(PDO $pdo): void {
+    $column = $pdo->query("SHOW COLUMNS FROM users LIKE 'role'")->fetch();
+    if ($column && !str_contains(strtoupper($column['Type']), "'GUEST'")) {
+        $pdo->exec("ALTER TABLE users MODIFY COLUMN role ENUM('ADMIN','USER','GUEST') NOT NULL DEFAULT 'USER'");
+    }
 }
 
 function validVatMultiplier(mixed $value): float {
@@ -180,6 +190,20 @@ function admin(): array {
     $user = me();
     if ($user['role'] !== 'ADMIN') throw new DomainException('Hanya admin yang dapat melakukan tindakan ini.');
     return $user;
+}
+
+function member(): array {
+    $user = me();
+    if (!in_array($user['role'], ['ADMIN', 'USER'], true)) throw new DomainException('Guest hanya dapat melihat listing transaksi.');
+    return $user;
+}
+
+function authorizeAction(string $action): void {
+    if ($action === 'login') return;
+    $user = me(in_array($action, ['session', 'logout', 'password'], true));
+    if ($user['role'] === 'GUEST' && !in_array($action, ['session', 'logout', 'password', 'list', 'options', 'export'], true)) {
+        throw new DomainException('Guest hanya dapat melihat listing transaksi.');
+    }
 }
 
 function csrf(): void {
@@ -355,7 +379,7 @@ function recordColumns(array $data): array {
 }
 
 function saveRecord(string $currency, string $id, array $incoming, mixed $incomingVatMultiplier = 0.11): string {
-    $actor = me();
+    $actor = member();
     if (!in_array($currency, ['IDR', 'USD'], true)) throw new DomainException('Mata uang tidak valid.');
     foreach ([13, 17, 22, 24, 25, 27] as $index) $incoming[$index] = '';
     $vatMultiplier = validVatMultiplier($incomingVatMultiplier);
@@ -387,7 +411,7 @@ function saveRecord(string $currency, string $id, array $incoming, mixed $incomi
 }
 
 function cancelRecord(string $currency, string $id): void {
-    $actor = me();
+    $actor = member();
     if (!in_array($currency, ['IDR', 'USD'], true)) throw new DomainException('Mata uang tidak valid.');
     $pdo = db(); $pdo->beginTransaction();
     try {
@@ -442,7 +466,8 @@ function importUsers(): int {
         $email = mb_strtolower(trim((string)($row[0] ?? '')));
         if (!filter_var($email, FILTER_VALIDATE_EMAIL) || !$row[1]) continue;
         $stmt = db()->prepare('INSERT IGNORE INTO users (email,password_hash,role,active,must_change) VALUES (?,?,?,?,?)');
-        $stmt->execute([$email, $row[1], strtoupper((string)$row[3]) === 'ADMIN' ? 'ADMIN' : 'USER', strtolower((string)$row[2]) === 'true' ? 1 : 0, 1]);
+        $role = strtoupper((string)$row[3]);
+        $stmt->execute([$email, $row[1], in_array($role, ['ADMIN', 'USER', 'GUEST'], true) ? $role : 'USER', strtolower((string)$row[2]) === 'true' ? 1 : 0, 1]);
         $count += $stmt->rowCount();
     }
     return $count;

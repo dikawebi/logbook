@@ -235,7 +235,7 @@ function loginPage() {
     <p id="login-error" class="login-error" role="alert" hidden></p>
     <button class="login-submit">Masuk ke Dashboard →</button></form>
     <p class="login-caption">Portal internal — khusus karyawan PT Borneo Prima.</p></div></section>
-    <aside class="login-visual"><div class="login-visual-content"><div class="login-feature"><span class="feature-icon">▤</span><div><b>Logbook IDR &amp; USD</b><span>Pantau invoice dan transaksi dalam satu aplikasi.</span></div></div>
+    <aside class="login-visual"><div class="login-visual-content"><div class="login-module"><h2>Accounting<br>Logbook</h2></div><div class="login-feature"><span class="feature-icon">▤</span><div><b>Logbook IDR &amp; USD</b><span>Pantau invoice dan transaksi dalam satu aplikasi.</span></div></div>
     <div class="login-feature"><span class="feature-icon">◷</span><div><b>Status Pembayaran</b><span>Temukan data berdasarkan vendor, kategori, dan status.</span></div></div>
     <div class="login-feature"><span class="feature-icon">▣</span><div><b>Audit Trail</b><span>Setiap perubahan transaksi tercatat dan dapat ditelusuri.</span></div></div>
     <div class="login-visual-foot"><span>Kunjungi website utama perusahaan</span><a href="https://borneoprima.com/" target="_blank" rel="noopener noreferrer">borneoprima.com ↗</a></div></div></aside></div>`;
@@ -252,15 +252,16 @@ function loginPage() {
   };
 }
 function shell() {
-  const links = [
-    ['Dashboard', '⌂', 'Dashboard'], ['IDR', '▤', 'Logbook IDR'], ['USD', '▤', 'Logbook USD'], ['Audit', '◷', 'Audit Trail'],
-    ...(state.user.role === 'ADMIN' ? [['Users', '♙', 'Manajemen Akses'], ['Sync', '↻', 'Sinkronisasi'], ['Settings', '⚙', 'Pengaturan Sync']] : []),
-    ['Password', '⚙', 'Ganti Password']
+  const groups = [
+    ...(state.user.role === 'GUEST' ? [] : [['Overview', [['Dashboard', '⌂', 'Dashboard']]]]),
+    ['Logbook', [['IDR', '▤', 'Logbook IDR'], ['USD', '▤', 'Logbook USD']]],
+    ...(state.user.role === 'GUEST' ? [] : [['Administrasi', [['Audit', '◷', 'Audit Trail'], ...(state.user.role === 'ADMIN' ? [['Users', '♙', 'Manajemen Akses'], ['Sync', '↻', 'Sinkronisasi'], ['Settings', '⚙', 'Pengaturan Sync']] : [])]]]),
+    ['Akun', [['Password', '⚙', 'Ganti Password']]]
   ];
   app.innerHTML = `<div class="app-shell ${sidebarCollapsed() ? 'sidebar-collapsed' : ''}"><header class="app-topbar">${brandMarkup()}
     <div class="topbar-user"><button class="theme-toggle" type="button" id="theme-app"></button><span>${esc(state.user.email)}</span><span class="user-avatar" title="${esc(state.user.role)}">${esc(state.user.email.slice(0, 2).toUpperCase())}</span>
     <button id="logout" class="secondary">Keluar</button></div></header>
-    <aside class="app-sidebar"><div class="sidebar-heading"><p class="sidebar-label">WORKSPACE</p><button class="sidebar-toggle" type="button" id="sidebar-toggle" aria-label="Ciutkan sidebar" title="Ciutkan sidebar">☰</button></div><nav>${links.map(([view, icon, label]) => `<button data-view="${view}"><span class="sidebar-icon" aria-hidden="true">${icon}</span>${label}</button>`).join('')}</nav>
+    <aside class="app-sidebar"><div class="sidebar-heading"><p class="sidebar-label">WORKSPACE</p><button class="sidebar-toggle" type="button" id="sidebar-toggle" aria-label="Ciutkan sidebar" title="Ciutkan sidebar">☰</button></div><nav>${groups.map(([label, links]) => `<div class="nav-group"><p>${label}</p>${links.map(([view, icon, text]) => `<button data-view="${view}"><span class="sidebar-icon" aria-hidden="true">${icon}</span>${text}</button>`).join('')}</div>`).join('')}</nav>
     <div class="sidebar-foot">PT BORNEO PRIMA<br><small>Accounting Logbook</small></div></aside>
     <div class="app-content"><main id="main"></main></div></div>`;
   bindThemeToggle('theme-app');
@@ -282,6 +283,7 @@ function shell() {
   }));
 }
 async function load() {
+  if (state.user.role === 'GUEST' && !['IDR', 'USD', 'Password'].includes(state.view)) state.view = 'IDR';
   document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === state.view));
   document.getElementById('main').classList.remove('records-workspace');
   document.onfullscreenchange = null;
@@ -451,15 +453,17 @@ function displayedAmountSummary(data, visible) {
   }).join('')}<td data-column-id="status" ${visible.has('status') ? '' : 'hidden'}></td><td class="sticky-actions">Total ${data.rows.length} data</td></tr></tfoot>`;
 }
 function recordsPage(data) {
+  const canEdit = state.user.role !== 'GUEST';
+  if (!canEdit) { delete state.newRecord; delete state.newVatMultiplier; }
   const visible = visibleColumns();
   const columns = columnIds();
   document.getElementById('main').classList.add('records-workspace');
-  document.getElementById('main').innerHTML = `<section class="card"><div class="toolbar"><h2>Transaksi ${state.view}</h2><div><button type="button" class="secondary" id="export-excel">Export Excel</button><button id="add">+ Tambah transaksi</button></div></div>
+  document.getElementById('main').innerHTML = `<section class="card"><div class="toolbar"><h2>Transaksi ${state.view}</h2><div>${canEdit ? '' : '<span class="badge gray">GUEST · Hanya baca</span> '}<button type="button" class="secondary" id="export-excel">Export Excel</button>${canEdit ? '<button id="add">+ Tambah transaksi</button>' : ''}</div></div>
     <div class="display-controls"><button type="button" class="secondary" id="fullscreen-table">Layar penuh</button><button type="button" class="secondary" data-preset="blank">Belum dibayar</button><button type="button" class="secondary" data-preset="due">Jatuh tempo 7 hari</button><button type="button" class="secondary" data-preset="cancelled">Dibatalkan</button>
     <details class="column-picker"><summary>Kolom ditampilkan <span id="column-count">(${visible.size}/34)</span></summary>
     <div class="column-picker-grid">${[...columns.map(id => [id, columnName(id)]), ['status', 'App Status']].map(([id, name]) => `<label><input type="checkbox" class="visible-column" value="${esc(id)}" ${visible.has(id) ? 'checked' : ''}>${esc(name)}</label>`).join('')}</div></details>
     <form id="filters" class="filters compact-filters"><label>Cari semua kolom<input name="keyword" value="${esc(state.filters.keyword)}" placeholder="Contoh: Borneo fuel"></label><button>Terapkan</button><button type="button" class="secondary" id="clear-filters">Hapus filter</button></form></div></section>
-    <section class="card records-card"><p class="muted listing-help">Geser tabel ke kanan untuk melihat seluruh 32 kolom Sheet dan VAT in multiplier lokal. Dua kolom awal dan aksi tetap terlihat saat digeser. Klik dua kali sel transaksi aktif untuk mengubahnya langsung. Pisahkan kata kunci dengan spasi (semua harus cocok); gunakan tanda kutip untuk frasa, misalnya <strong>"PT Borneo" fuel</strong>.</p>
+    <section class="card records-card"><p class="muted listing-help">Geser tabel ke kanan untuk melihat seluruh 32 kolom Sheet dan VAT in multiplier lokal. ${canEdit ? 'Klik dua kali sel transaksi aktif untuk mengubahnya langsung. ' : 'Akses Guest hanya baca. '}Pisahkan kata kunci dengan spasi (semua harus cocok); gunakan tanda kutip untuk frasa, misalnya <strong>"PT Borneo" fuel</strong>.</p>
     <div class="scroll sheet-scroll"><table class="sheet-table"><thead><tr>${columns.map(id => `<th data-column-id="${id}" ${visible.has(id) ? '' : 'hidden'}><button class="sort-column" data-sort="${id}" title="Urutkan ${esc(columnName(id))}" aria-label="Urutkan ${esc(columnName(id))}">${esc(columnName(id))} ${state.filters.sort === id ? state.filters.direction === 'DESC' ? '▼' : '▲' : '↕'}</button><span class="column-resizer" data-resize="${id}" title="Tarik untuk mengatur lebar kolom"></span></th>`).join('')}
     <th data-column-id="status" ${visible.has('status') ? '' : 'hidden'}><button class="sort-column" data-sort="status" title="Urutkan App Status">App Status ${state.filters.sort === 'status' ? state.filters.direction === 'DESC' ? '▼' : '▲' : '↕'}</button><span class="column-resizer" data-resize="status" title="Tarik untuk mengatur lebar kolom"></span></th><th class="sticky-actions">Aksi</th></tr>
     <tr class="search-row">${columns.map(id => `<th data-column-id="${id}" ${visible.has(id) ? '' : 'hidden'}><div class="column-filter"><input class="column-search" name="c${id === vatMultiplierColumn ? 'VatMultiplier' : id}" aria-label="Cari ${esc(columnName(id))}" placeholder="Kata kunci..." value="${esc(state.filters['c' + (id === vatMultiplierColumn ? 'VatMultiplier' : id)])}">
@@ -469,16 +473,16 @@ function recordsPage(data) {
     ${state.newRecord ? `<tr class="new-record-row">${columns.map(col => `<td data-column-id="${col}" ${visible.has(col) ? '' : 'hidden'}>${newRecordField(col, col === vatMultiplierColumn ? state.newVatMultiplier : state.newRecord[col])}</td>`).join('')}<td data-column-id="status" ${visible.has('status') ? '' : 'hidden'}><span class="badge gray">Baru</span></td><td class="actions sticky-actions"><button type="button" id="save-new-record">Simpan</button><button type="button" class="secondary" id="cancel-new-record">Batal</button><p id="new-record-error" class="inline-error" role="alert" hidden></p></td></tr>` : ''}
     ${data.rows.length ? data.rows.map((r, i) => `<tr class="${r.cancelled ? 'cancelled-row' : ''}${r.overdue ? ' overdue-row' : ''}">${columns.map(col => {
        const raw = r.cancelled && col === '30' ? 'Invoice Cancel' : recordValue(r, col);
-       const sheetColumn = Number(col), editable = !r.cancelled && (col === vatMultiplierColumn || !formulaColumns.has(sheetColumn));
+       const sheetColumn = Number(col), editable = canEdit && !r.cancelled && (col === vatMultiplierColumn || !formulaColumns.has(sheetColumn));
        return `<td data-column-id="${col}" ${visible.has(col) ? '' : 'hidden'} class="${amountColumns.has(sheetColumn) ? 'amount ' : ''}${editable ? 'inline-editable' : formulaColumns.has(sheetColumn) ? 'formula-cell' : ''}" data-inline-row="${i}" data-inline-column="${col}" title="${editable ? `Klik dua kali untuk edit: ${esc(raw)}` : esc(raw)}">${col === vatMultiplierColumn ? esc(raw) : formatCell(raw, sheetColumn)}</td>`;
      }).join('')}<td data-column-id="status" ${visible.has('status') ? '' : 'hidden'}><span class="badge ${r.cancelled ? 'red' : r.overdue ? 'amber' : 'green'}">${r.cancelled ? 'Dibatalkan' : r.overdue ? `Overdue ${r.overdueDays} hari` : 'Aktif'}</span></td>
-      <td class="actions sticky-actions"><button class="secondary" data-detail="${i}">Detail</button>${r.cancelled ? '' : `<button data-edit="${i}">Edit</button><button class="danger" data-cancel="${i}">Batal</button>`}</td></tr>`).join('') : `<tr><td id="empty-row" colspan="${visible.size + 1}">Tidak ada transaksi.</td></tr>`}</tbody>${displayedAmountSummary(data, visible)}</table></div>${pager(data)}
+      <td class="actions sticky-actions"><button class="secondary" data-detail="${i}">Detail</button>${!canEdit || r.cancelled ? '' : `<button data-edit="${i}">Edit</button><button class="danger" data-cancel="${i}">Batal</button>`}</td></tr>`).join('') : `<tr><td id="empty-row" colspan="${visible.size + 1}">Tidak ada transaksi.</td></tr>`}</tbody>${displayedAmountSummary(data, visible)}</table></div>${pager(data)}
     <div class="table-controls"><label>Baris per halaman <select id="page-size"><option value="all" ${state.perPage === 'all' ? 'selected' : ''}>Tampilkan Semua</option>${pageSizes.map(count => `<option value="${count}" ${state.perPage === count ? 'selected' : ''}>${count}</option>`).join('')}</select></label></div><datalist id="new-vendor-codes"></datalist><datalist id="new-vendor-names"></datalist>${[23, 26, 28].map(column => `<datalist id="history-options-${column}"></datalist>`).join('')}</section>`;
   applyColumnOrder();
   applyColumnWidths();
   bindColumnDrag();
   bindColumnResize();
-  document.getElementById('add').onclick = () => { state.newVatMultiplier = 0.11; state.newRecord = applyRecordFormulas(Array(32).fill(''), state.newVatMultiplier); recordsPage(data); };
+  if (canEdit) document.getElementById('add').onclick = () => { state.newVatMultiplier = 0.11; state.newRecord = applyRecordFormulas(Array(32).fill(''), state.newVatMultiplier); recordsPage(data); };
   document.getElementById('export-excel').onclick = () => {
     const params = new URLSearchParams({ api: 'export', currency: state.view, page: state.page, perPage: state.perPage, ...tableFilters() });
     window.location.assign('/index.php?' + params);
@@ -595,6 +599,7 @@ function recordsPage(data) {
   attachPager();
 }
 function openInlineEditor(cell) {
+  if (state.user.role === 'GUEST') return;
   if (cell.dataset.editing === 'true') return;
   const row = Number(cell.dataset.inlineRow), columnId = cell.dataset.inlineColumn, column = Number(columnId), record = state.rows[row];
   if (!record || record.cancelled) return;
@@ -628,6 +633,7 @@ function openInlineEditor(cell) {
   if (input instanceof HTMLInputElement && input.type === 'text') input.select();
 }
 function recordDialog(record, detail = false) {
+  if (state.user.role === 'GUEST') detail = true;
   const data = record ? [...record.data] : Array(32).fill('');
   const vatMultiplier = record?.vatMultiplier ?? 0.11;
   if (record?.cancelled) data[30] = 'Invoice Cancel';
@@ -664,22 +670,23 @@ function auditPage(data) {
 }
 function usersPage(users) {
   state.users = users;
-  document.getElementById('main').innerHTML = `<section class="card"><h2>Pengguna</h2><form id="new-user" class="filters"><label>Email<input name="email" type="email" required></label><button>Tambah pengguna</button></form>
+  document.getElementById('main').innerHTML = `<section class="card"><h2>Pengguna</h2><form id="new-user" class="filters"><label>Email<input name="email" type="email" required></label><label>Role<select name="role"><option>USER</option><option>GUEST</option><option>ADMIN</option></select></label><button>Tambah pengguna</button></form>
     <p class="muted">Password awal dan hasil reset adalah <code>password</code>. Pengguna wajib menggantinya pada login pertama.</p><div id="temporary"></div></section>
     <section class="card scroll"><table><thead><tr><th>Email</th><th>Role</th><th>Status</th><th>Password</th><th>Aksi</th></tr></thead><tbody>
-    ${users.map((u, i) => `<tr><td>${esc(u.email)}</td><td>${esc(u.role)}</td><td>${u.active ? 'Aktif' : 'Nonaktif'}</td><td>${u.must_change ? 'Wajib diganti' : 'Aktif'}</td>
-      <td class="actions"><button class="secondary" data-status="${i}">${u.active ? 'Nonaktifkan' : 'Aktifkan'}</button><button class="secondary" data-role="${i}">${u.role === 'ADMIN' ? 'Jadikan USER' : 'Jadikan ADMIN'}</button><button class="secondary" data-reset="${i}">Reset password</button></td></tr>`).join('')}</tbody></table></section>`;
+    ${users.map((u, i) => `<tr><td>${esc(u.email)}</td><td><select data-role="${i}" aria-label="Role ${esc(u.email)}" ${u.email === state.user.email ? 'disabled' : ''}>${['ADMIN','USER','GUEST'].map(role => `<option ${u.role === role ? 'selected' : ''}>${role}</option>`).join('')}</select></td><td>${u.active ? 'Aktif' : 'Nonaktif'}</td><td>${u.must_change ? 'Wajib diganti' : 'Aktif'}</td>
+      <td class="actions"><button class="secondary" data-status="${i}">${u.active ? 'Nonaktifkan' : 'Aktifkan'}</button><button class="secondary" data-reset="${i}">Reset password</button></td></tr>`).join('')}</tbody></table></section>`;
   const refresh = async result => { usersPage(await api('users')); if (result?.temporaryPassword) document.getElementById('temporary').innerHTML = `<div class="temporary">Password awal untuk ${esc(result.email)}: <code>${esc(result.temporaryPassword)}</code>. Wajib diganti setelah login.</div>`; };
   document.getElementById('new-user').onsubmit = event => safely(async () => {
-    event.preventDefault(); await refresh(await api('add-user', { email: event.target.elements.email.value }));
+    event.preventDefault(); await refresh(await api('add-user', { email: event.target.elements.email.value, role: event.target.elements.role.value }));
   });
   document.querySelectorAll('[data-status]').forEach(b => b.onclick = () => safely(async () => {
     const u = state.users[Number(b.dataset.status)]; if (!confirm('Ubah status ' + u.email + '?')) return;
     await api('user-status', { email: u.email, value: u.active ? '0' : '1' }); await refresh();
   }));
-  document.querySelectorAll('[data-role]').forEach(b => b.onclick = () => safely(async () => {
-    const u = state.users[Number(b.dataset.role)]; if (!confirm('Ubah role ' + u.email + '?')) return;
-    await api('user-role', { email: u.email, value: u.role === 'ADMIN' ? 'USER' : 'ADMIN' }); await refresh();
+  document.querySelectorAll('[data-role]').forEach(b => b.onchange = () => safely(async () => {
+    const u = state.users[Number(b.dataset.role)]; if (!confirm('Ubah role ' + u.email + ' menjadi ' + b.value + '?')) { b.value = u.role; return; }
+    try { await api('user-role', { email: u.email, value: b.value }); await refresh(); }
+    catch (error) { b.value = u.role; throw error; }
   }));
   document.querySelectorAll('[data-reset]').forEach(b => b.onclick = () => safely(async () => {
     const u = state.users[Number(b.dataset.reset)]; if (!confirm('Reset password ' + u.email + '?')) return;

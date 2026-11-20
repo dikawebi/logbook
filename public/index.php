@@ -18,7 +18,7 @@ if (($_GET['api'] ?? '') === '') {
     $styleVersion = (string)filemtime(__DIR__ . '/style.css');
     $scriptVersion = (string)filemtime(__DIR__ . '/app.js');
     echo '<!doctype html><html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-        . '<meta name="csrf-token" content="' . $csrf . '"><link rel="icon" type="image/svg+xml" href="/images/logo-bp.svg"><title>Logbook Accounting</title>'
+        . '<meta name="csrf-token" content="' . $csrf . '"><link rel="icon" type="image/svg+xml" href="/images/logo-bp.svg"><title>PT Borneo Prima - Accounting Logbook</title>'
         . '<script>try{document.documentElement.dataset.theme=localStorage.getItem("logbook-theme")==="dark"?"dark":"light"}catch(e){document.documentElement.dataset.theme="light"}</script>'
         . '<link rel="stylesheet" href="/style.css?v=' . $styleVersion . '"></head>'
         . '<body><div id="app">Memuat...</div><div id="toast" role="alert"></div><dialog id="dialog"><div id="dialog-body"></div></dialog><script src="/app.js?v=' . $scriptVersion . '" defer></script></body></html>';
@@ -27,6 +27,7 @@ if (($_GET['api'] ?? '') === '') {
 
 if (($_GET['api'] ?? '') === 'export') {
     try {
+        authorizeAction('export');
         exportRecords();
     } catch (Throwable $error) {
         http_response_code(400);
@@ -39,6 +40,7 @@ if (($_GET['api'] ?? '') === 'export') {
 header('Content-Type: application/json; charset=UTF-8');
 try {
     $action = (string)$_GET['api'];
+    authorizeAction($action);
     $post = $_SERVER['REQUEST_METHOD'] === 'POST';
     if ($post) csrf();
     $body = $post ? json_decode(file_get_contents('php://input'), true, flags: JSON_THROW_ON_ERROR) : [];
@@ -66,7 +68,7 @@ try {
         'cancel' => $post ? (function () use ($body): bool { cancelRecord((string)($body['currency'] ?? ''), (string)($body['id'] ?? '')); return true; })() : throw new DomainException('Metode tidak valid.'),
         'audit' => auditList(),
         'users' => usersList(),
-        'add-user' => $post ? addUser((string)($body['email'] ?? '')) : throw new DomainException('Metode tidak valid.'),
+        'add-user' => $post ? addUser((string)($body['email'] ?? ''), (string)($body['role'] ?? 'USER')) : throw new DomainException('Metode tidak valid.'),
         'user-status' => $post ? updateUser((string)($body['email'] ?? ''), 'status', (string)($body['value'] ?? '')) : throw new DomainException('Metode tidak valid.'),
         'user-role' => $post ? updateUser((string)($body['email'] ?? ''), 'role', (string)($body['value'] ?? '')) : throw new DomainException('Metode tidak valid.'),
         'reset-user' => $post ? resetUser((string)($body['email'] ?? '')) : throw new DomainException('Metode tidak valid.'),
@@ -109,7 +111,7 @@ try {
     $expected = $error instanceof DomainException;
     http_response_code($expected ? 400 : 500);
     echo json_encode(['ok' => false, 'error' => $expected ? $error->getMessage() : 'Kesalahan server. Periksa log PHP.'], JSON_UNESCAPED_UNICODE);
-    if (!$expected) error_log((string)$error);
+    if (!$expected) error_log($error::class . ': ' . $error->getMessage());
 }
 
 function listRecords(): array {
@@ -144,6 +146,7 @@ function listRecords(): array {
 }
 
 function exportRecords(): void {
+    me();
     $currency = (string)($_GET['currency'] ?? 'IDR');
     // Reuse the listing query so exported rows exactly match the visible table page.
     $records = listRecords();
@@ -244,7 +247,7 @@ function xlsxColumnName(int $number): string {
 }
 
 function dashboardData(): array {
-    me();
+    member();
     $rows = db()->query("SELECT currency, COUNT(*) AS total,
         SUM(cancelled=0 AND payment_status='paid') AS paid,
         SUM(cancelled=0 AND payment_status<>'paid') AS unpaid,
@@ -263,7 +266,7 @@ function dashboardData(): array {
 }
 
 function auditList(): array {
-    me(); $page = min(100000, max(1, (int)($_GET['page'] ?? 1)));
+    member(); $page = min(100000, max(1, (int)($_GET['page'] ?? 1)));
     $total = (int)db()->query('SELECT COUNT(*) FROM audit_logs')->fetchColumn();
     $rows = db()->query("SELECT happened_at,email,currency,record_id,action,column_name,old_value,new_value,
         invoice_snapshot AS invoice, vendor_snapshot AS vendor, invoice_date_snapshot AS invoice_date
@@ -281,12 +284,13 @@ function usersList(): array {
     }, db()->query('SELECT email,role,active,must_change FROM users ORDER BY email')->fetchAll());
 }
 
-function addUser(string $email): array {
+function addUser(string $email, string $role = 'USER'): array {
     $actor = admin(); $email = mb_strtolower(trim($email));
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) throw new DomainException('Email tidak valid.');
+    if (!in_array($role, ['ADMIN', 'USER', 'GUEST'], true)) throw new DomainException('Role pengguna tidak valid.');
     $password = 'password';
     try {
-        db()->prepare("INSERT INTO users (email,password_hash,role,active,must_change) VALUES (?,?,'USER',1,1)")->execute([$email, password_hash($password, PASSWORD_DEFAULT)]);
+        db()->prepare('INSERT INTO users (email,password_hash,role,active,must_change) VALUES (?,?,?,1,1)')->execute([$email, password_hash($password, PASSWORD_DEFAULT), $role]);
     } catch (PDOException $e) {
         if ($e->getCode() === '23000') throw new DomainException('Email sudah terdaftar.');
         throw $e;
@@ -301,7 +305,7 @@ function updateUser(string $email, string $field, string $value): bool {
         if (!in_array($value, ['0', '1'], true) || ($email === $actor['email'] && $value === '0')) throw new DomainException('Status pengguna tidak valid.');
         $column = 'active'; $new = $value;
     } else {
-        if (!in_array($value, ['ADMIN', 'USER'], true) || ($email === $actor['email'] && $value !== 'ADMIN')) throw new DomainException('Role pengguna tidak valid.');
+        if (!in_array($value, ['ADMIN', 'USER', 'GUEST'], true) || ($email === $actor['email'] && $value !== 'ADMIN')) throw new DomainException('Role pengguna tidak valid.');
         $column = 'role'; $new = $value;
     }
     $stmt = db()->prepare('SELECT ' . $column . ' FROM users WHERE email=?'); $stmt->execute([$email]);

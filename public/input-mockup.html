@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Prototype Input - PT Borneo Prima Accounting Logbook</title>
+  <link rel="stylesheet" href="/input-mockup.css">
+  <link rel="stylesheet" href="/input-mockup-layouts.css">
+  <script src="/input-mockup.js" defer></script>
+</head>
+<body>
+  <header class="masthead"><a href="/"><img src="/images/logo-bp.svg" alt="PT Borneo Prima"> <span>PT BORNEO PRIMA<small>Accounting Logbook · Input Lab</small></span></a><span class="demo-label">PROTOTYPE · DATA DEMO LOKAL</span></header>
+  <main>
+    <div class="intro"><span class="eyebrow">EXPLORE THE EXPERIENCE</span><h1>Input lebih mudah.<br>Review lebih jelas.</h1><p>Bandingkan tujuh alur lengkap, dari input invoice sampai hasil tersimpan dan edit ulang.</p></div>
+    <nav class="option-tabs" aria-label="Pilihan pengalaman input">
+      <button data-mode="wizard"><b>01</b><span>Form bertahap<small>Fokus satu bagian setiap langkah</small></span></button>
+      <button data-mode="grouped"><b>02</b><span>Form + ringkasan<small>Semua field dalam satu workspace</small></span></button>
+      <button data-mode="drawer"><b>03</b><span>Drawer dari listing<small>Input sambil tetap melihat transaksi</small></span></button>
+      <button data-mode="template"><b>04</b><span>Mulai dari template<small>Default untuk transaksi berulang</small></span></button>
+      <button data-mode="quick"><b>07</b><span>Input cepat<small>Field inti + detail lanjutan</small></span></button>
+      <button data-mode="document"><b>08</b><span>Dokumen + form<small>Baca invoice dan input berdampingan</small></span></button>
+      <button data-mode="grid"><b>09</b><span>Grid entry<small>Input batch dengan keyboard</small></span></button>
+    </nav>
+    <section class="workspace"><div class="workspace-head"><div><span class="eyebrow" id="mode-label"></span><h2 id="workspace-title"></h2><p id="mode-description"></p></div><div class="toolbar"><select id="currency" aria-label="Mata uang"><option>IDR</option><option>USD</option></select><button id="sample" class="secondary">Isi contoh</button><button id="new" class="primary">+ Transaksi baru</button></div></div>
+      <div id="draft-info" class="draft-info"></div>
+      <div id="templates"></div>
+      <div id="editor-host"></div>
+      <div id="listing"></div>
+    </section>
+    <p class="footnote">Semua penyimpanan dilakukan di browser ini, menggunakan data demo. Refresh halaman untuk mencoba pemulihan draft.</p>
+  </main>
+  <div id="toast" role="status" hidden></div>
+  <dialog id="review"><div class="dialog-head"><div><span class="eyebrow">FINAL CHECK</span><h2>Review transaksi</h2></div><button id="review-close" class="secondary">Kembali edit</button></div><div id="review-body"></div><div class="dialog-actions"><button id="confirm" class="primary">Konfirmasi & simpan demo</button></div></dialog>
+</body>
+</html>

@@ -126,7 +126,15 @@ try {
   assert.equal(saveFeedback.visible, true);
   assert.equal(saveFeedback.message, 'Vendor Name dan Invoice No wajib diisi.');
   const formulas = await evaluate(`(() => { const set=(column,value) => { const field=document.querySelector('[data-new-column="'+column+'"]'); field.value=value; field.oninput(); }; set(5,'INV-1'); set(12,'Fuel'); set(15,'100'); set(16,'200'); set(6,'2026-01-07'); set(26,'30'); return {narration:document.querySelector('[data-new-column="13"]').value, vat:document.querySelector('[data-new-column="17"]').value, amount:document.querySelector('[data-new-column="22"]').value, net:document.querySelector('[data-new-column="25"]').value, due:document.querySelector('[data-new-column="27"]').value, locked:document.querySelector('[data-new-column="22"]').readOnly}; })()`);
-  console.log('Checks passed: mobile 390px login/dashboard/tabel tanpa overflow; dark mode, sidebar, sticky, inline tambah, formula, jumlah baris dan pilihan kolom aktif.');
+  const guest = await evaluate(`(() => { dialog.close();state.user={email:'guest@example.test',role:'GUEST',mustChange:false};state.view='IDR';shell();state.names=Array.from({length:32},(_,i)=>'Kolom '+(i+1));state.rows=[{id:'guest-sample',data:Array(32).fill(''),vatMultiplier:0.11,cancelled:false,invoice:'INV-GUEST'}];recordsPage({names:state.names,rows:state.rows,categories:[],page:1,pages:1,total:1,perPage:'all'});document.querySelector('[data-detail]').click();return {add:!!document.getElementById('add'),export:!!document.getElementById('export-excel'),editable:document.querySelectorAll('.inline-editable,[data-edit],[data-cancel]').length,restrictedNav:document.querySelectorAll('[data-view="Dashboard"],[data-view="Audit"],[data-view="Users"],[data-view="Sync"],[data-view="Settings"]').length,detail:dialog.open,editForm:!!document.getElementById('record'),listingLinks:document.querySelectorAll('[data-view="IDR"],[data-view="USD"]').length};})()`);
+  assert.equal(guest.add, false);
+  assert.equal(guest.export, true);
+  assert.equal(guest.editable, 0);
+  assert.equal(guest.restrictedNav, 0);
+  assert.equal(guest.listingLinks, 2);
+  assert.equal(guest.detail, true);
+  assert.equal(guest.editForm, false);
+  console.log('Checks passed: mobile, dark mode, sidebar, sticky, inline input, formulas, columns, and read-only GUEST listing/detail UI.');
 } finally {
   socket?.close();
   browser.kill();
